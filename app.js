@@ -6,50 +6,65 @@ import cookieParser from 'cookie-parser'
 import cors from 'cors'
 import dotenv from 'dotenv'
 
-import userRoutes from '../server/routes/ItemRoutes.js'
-import ItemRoutes from '../server/routes/userRoutes.js'
+import userRoutes from './routes/userRoutes.js'
+import ItemRoutes from './routes/ItemRoutes.js'
 
 dotenv.config()
 
 const app = express()
 
-// Middlewares
-app.use(express.json())
+/* =======================
+   CORS (MUST BE FIRST)
+======================= */
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://frontend-vite-phi.vercel.app'
+]
+
 app.use(cors({
-  origin: '*',
-  credentials: true
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true)
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+    return callback(new Error('CORS not allowed'))
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }))
-app.use(morgan('dev'))
+
+// 🔥 IMPORTANT: explicitly allow OPTIONS
+app.options('*', cors())
+
+/* =======================
+   Middlewares
+======================= */
+app.use(express.json())
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
 app.use(cookieParser())
+app.use(morgan('dev'))
 
-// Routes
-app.use('/users', userRoutes)
-app.use('/items', ItemRoutes)
-
-// MongoDB connection (important for serverless)
+/* =======================
+   MongoDB (serverless safe)
+======================= */
 let isConnected = false
-
 const connectDB = async () => {
   if (isConnected) return
-  try {
-    await mongoose.connect(`mongodb+srv://kaushikvihu:ru2004@cluster0.tucxfzs.mongodb.net/lostandfound`, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    })
-    isConnected = true
-    console.log('MongoDB connected')
-  } catch (err) {
-    console.error(err.message)
-  }
+  await mongoose.connect(process.env.DB)
+  isConnected = true
 }
 
-// Connect DB on each request
 app.use(async (_req, _res, next) => {
   await connectDB()
   next()
 })
 
-// Export app (DO NOT use app.listen)
+/* =======================
+   Routes
+======================= */
+app.use('/users', userRoutes)
+app.use('/items', ItemRoutes)
+
 export default app
