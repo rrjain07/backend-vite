@@ -1,10 +1,10 @@
 import express from 'express'
-import cors from 'cors'
-import dotenv from 'dotenv'
 import mongoose from 'mongoose'
 import morgan from 'morgan'
 import bodyParser from 'body-parser'
 import cookieParser from 'cookie-parser'
+import cors from 'cors'
+import dotenv from 'dotenv'
 
 import userRoutes from './routes/userRoutes.js'
 import ItemRoutes from './routes/ItemRoutes.js'
@@ -14,35 +14,15 @@ dotenv.config()
 const app = express()
 
 /* ======================
-   CORS — MUST BE FIRST
+   CORS (simple on Render)
 ====================== */
-const allowedOrigins = [
-  'http://localhost:5173',
-  'https://frontend-vite-phi.vercel.app'
-]
-
-app.use((req, res, next) => {
-  const origin = req.headers.origin
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin)
-  }
-
-  res.setHeader('Access-Control-Allow-Credentials', 'true')
-  res.setHeader(
-    'Access-Control-Allow-Methods',
-    'GET,POST,PUT,DELETE,OPTIONS'
-  )
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'Content-Type, Authorization'
-  )
-
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200) // 🔥 THIS FIXES IT
-  }
-
-  next()
-})
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'https://frontend-vite-phi.vercel.app'
+  ],
+  credentials: true
+}))
 
 /* ======================
    Middlewares
@@ -54,24 +34,22 @@ app.use(cookieParser())
 app.use(morgan('dev'))
 
 /* ======================
-   MongoDB (serverless-safe)
-====================== */
-let isConnected = false
-async function connectDB() {
-  if (isConnected) return
-  await mongoose.connect(process.env.DB)
-  isConnected = true
-}
-
-app.use(async (_req, _res, next) => {
-  await connectDB()
-  next()
-})
-
-/* ======================
    Routes
 ====================== */
 app.use('/users', userRoutes)
 app.use('/items', ItemRoutes)
 
-export default app
+/* ======================
+   DB + Server
+====================== */
+const PORT = process.env.PORT || 4000
+
+mongoose
+  .connect(process.env.DB)
+  .then(() => {
+    console.log('MongoDB connected')
+    app.listen(PORT, () =>
+      console.log(`Server running on port ${PORT}`)
+    )
+  })
+  .catch(err => console.log(err.message))
