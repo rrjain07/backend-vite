@@ -6,42 +6,50 @@ import cookieParser from 'cookie-parser'
 import cors from 'cors'
 import dotenv from 'dotenv'
 
+import userRoutes from '../server/routes/ItemRoutes.js'
+import ItemRoutes from '../server/routes/userRoutes.js'
 
-import userRoutes from './routes/userRoutes.js'
-import ItemRoutes from './routes/ItemRoutes.js'
-
+dotenv.config()
 
 const app = express()
-dotenv.config();
+
+// Middlewares
 app.use(express.json())
-app.use(cors())
+app.use(cors({
+  origin: '*',
+  credentials: true
+}))
 app.use(morgan('dev'))
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
 app.use(cookieParser())
 
-app.use((_req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*') // update to match the domain you will make the request from
-    res.header('Access-Control-Allow-Credentials', 'true')
-    res.header(
-        'Access-Control-Allow-Headers',
-        'Origin, X-Requested-With, Content-Type, Accept'
-    )
-    res.header(
-        'Access-Control-Allow-Methods',
-        'GET, POST, OPTIONS, PUT, DELETE'
-    )
-    next()
+// Routes
+app.use('/users', userRoutes)
+app.use('/items', ItemRoutes)
+
+// MongoDB connection (important for serverless)
+let isConnected = false
+
+const connectDB = async () => {
+  if (isConnected) return
+  try {
+    await mongoose.connect(`mongodb+srv://kaushikvihu:ru2004@cluster0.tucxfzs.mongodb.net/lostandfound`, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true
+    })
+    isConnected = true
+    console.log('MongoDB connected')
+  } catch (err) {
+    console.error(err.message)
+  }
+}
+
+// Connect DB on each request
+app.use(async (_req, _res, next) => {
+  await connectDB()
+  next()
 })
 
-
-app.use('/users', userRoutes)
-
-app.use('/Items', ItemRoutes)
-
-
-const port = process.env.PORT || 4000;
-const db = process.env.DB;
-
-mongoose.connect(db,{ useNewUrlParser: true, useUnifiedTopology: true }).then(() => app.listen(port,() => console.log('Connection done and running on PORT :'+ port))).catch((err) => console.log(err.message));
-
+// Export app (DO NOT use app.listen)
+export default app
